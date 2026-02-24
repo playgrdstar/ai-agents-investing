@@ -1,0 +1,233 @@
+{
+  "name": "03 - Agent + Code Tools",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -640,
+        -64
+      ],
+      "id": "852c4bfa-65db-4e48-8461-ecf2ddac4f52",
+      "name": "When chat message received",
+      "webhookId": "codeact-pattern-chat"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a quantitative finance assistant that can perform calculations.\n\nYou have access to:\n1. Stock Price tool - get current price, change, volume\n2. Historical Prices tool - get daily prices for calculations\n3. Company Fundamentals tool - get P/E, ROE, debt ratios, etc.\n4. Calculate Metric tool - compute financial metrics\n\nWhen users ask for calculations like Sharpe ratio, VaR, Sortino ratio, or other metrics:\n1. First fetch historical prices using the Historical Prices tool\n2. Then call Calculate Metric with the calculationType and prices array\n3. Explain the result in plain English\n\nAvailable calculationType values for Calculate Metric:\n- 'sharpe': Sharpe ratio\n- 'sortino': Sortino ratio  \n- 'var95': Value at Risk 95%\n- 'var99': Value at Risk 99%\n- 'volatility': Annualized volatility\n- 'returns': Daily and annualized returns\n- 'max_drawdown': Maximum drawdown\n\nWhen calling Calculate Metric, pass:\n- calculationType: one of the types above\n- prices: array of closing prices from Historical Prices (extract the 'close' values)\n- riskFreeRate: optional, defaults to 0.05 (5%)\n\nAlways show your work - finance professionals need to verify calculations."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -416,
+        -64
+      ],
+      "id": "d1779955-c283-49e2-bdb0-dcb0184d585b",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -528,
+        144
+      ],
+      "id": "fd5f2bf9-f2c9-4d92-b7ed-1771ee545047",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "dNGZjd5M7FEnikxV",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get current stock price, daily change, volume, and market cap for a ticker. Use this to check current values.",
+        "url": "=https://financialmodelingprep.com/api/v3/quote/{{ $fromAI('ticker', 'Stock ticker symbol like AAPL or MSFT') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -496,
+        304
+      ],
+      "id": "7dfa1600-109f-409b-8a80-51050d1a3b5d",
+      "name": "Stock Price"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get historical daily prices for a stock. Returns date, open, high, low, close, volume. Use this data for calculating Sharpe ratio, volatility, VaR, returns, and other metrics. Extract the 'close' prices as an array for calculations.",
+        "url": "=https://financialmodelingprep.com/api/v3/historical-price-full/{{ $fromAI('ticker', 'Stock ticker symbol like AAPL or MSFT') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            },
+            {
+              "name": "timeseries",
+              "value": "50"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -352,
+        304
+      ],
+      "id": "45887b3f-d26b-480a-a6a6-51036882e26c",
+      "name": "Historical Prices"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get company fundamentals including P/E ratio, ROE, ROA, debt/equity, profit margins, and other key metrics. Use for fundamental analysis.",
+        "url": "=https://financialmodelingprep.com/api/v3/key-metrics-ttm/{{ $fromAI('ticker', 'Stock ticker symbol like AAPL or MSFT') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -176,
+        304
+      ],
+      "id": "364872b1-e9e9-435a-b3bb-3618cd671250",
+      "name": "Company Fundamentals"
+    },
+    {
+      "parameters": {
+        "name": "calculate_metric",
+        "description": "Calculate financial metrics from price data. Parameters: calculationType (string: 'sharpe', 'sortino', 'var95', 'var99', 'volatility', 'returns', 'max_drawdown'), prices (array of numbers - closing prices, oldest first), riskFreeRate (optional number, default 0.05).",
+        "jsCode": "// Get input from the 'query' property (how n8n AI tools receive data)\nlet params;\n\ntry {\n  if (typeof $input.item.json.query === 'string') {\n    params = JSON.parse($input.item.json.query);\n  } else if ($input.item.json.query) {\n    params = $input.item.json.query;\n  } else if (typeof $input.item.json.input === 'string') {\n    params = JSON.parse($input.item.json.input);\n  } else {\n    params = $input.item.json;\n  }\n} catch (e) {\n  return 'Error parsing input: ' + e.message;\n}\n\nconst calculationType = params.calculationType;\nconst prices = params.prices;\nconst riskFreeRate = params.riskFreeRate || 0.05;\n\n// Validate inputs\nif (!prices || !Array.isArray(prices) || prices.length < 2) {\n  return 'Error: prices must be an array with at least 2 values';\n}\n\n// Helper functions\nfunction calcReturns(priceArray) {\n  return priceArray.map((p, i) => \n    i > 0 ? (p - priceArray[i-1]) / priceArray[i-1] : 0\n  ).slice(1);\n}\n\nfunction mean(arr) {\n  return arr.reduce((a, b) => a + b, 0) / arr.length;\n}\n\nfunction std(arr) {\n  const m = mean(arr);\n  return Math.sqrt(arr.map(x => Math.pow(x - m, 2)).reduce((a, b) => a + b, 0) / arr.length);\n}\n\nfunction downsideStd(arr) {\n  const negatives = arr.filter(r => r < 0);\n  if (negatives.length === 0) return 0;\n  return Math.sqrt(negatives.map(r => Math.pow(r, 2)).reduce((a, b) => a + b, 0) / negatives.length);\n}\n\n// Calculations\nconst calculations = {\n  sharpe: () => {\n    const returns = calcReturns(prices);\n    const avgReturn = mean(returns);\n    const stdDev = std(returns);\n    const annualizedReturn = avgReturn * 252;\n    const annualizedVol = stdDev * Math.sqrt(252);\n    const sharpe = (annualizedReturn - riskFreeRate) / annualizedVol;\n    return {\n      sharpeRatio: sharpe.toFixed(4),\n      annualizedReturn: (annualizedReturn * 100).toFixed(2) + '%',\n      annualizedVolatility: (annualizedVol * 100).toFixed(2) + '%',\n      riskFreeRateUsed: (riskFreeRate * 100).toFixed(2) + '%',\n      tradingDays: returns.length\n    };\n  },\n  \n  sortino: () => {\n    const returns = calcReturns(prices);\n    const avgReturn = mean(returns);\n    const downside = downsideStd(returns);\n    const annualizedReturn = avgReturn * 252;\n    const annualizedDownside = downside * Math.sqrt(252);\n    const sortino = annualizedDownside > 0 \n      ? (annualizedReturn - riskFreeRate) / annualizedDownside \n      : null;\n    return {\n      sortinoRatio: sortino ? sortino.toFixed(4) : 'N/A (no downside)',\n      annualizedReturn: (annualizedReturn * 100).toFixed(2) + '%',\n      annualizedDownsideDeviation: (annualizedDownside * 100).toFixed(2) + '%',\n      riskFreeRateUsed: (riskFreeRate * 100).toFixed(2) + '%',\n      tradingDays: returns.length\n    };\n  },\n  \n  var95: () => {\n    const returns = calcReturns(prices);\n    const sorted = [...returns].sort((a, b) => a - b);\n    const index = Math.floor(0.05 * sorted.length);\n    const var95 = sorted[index];\n    return {\n      var95Daily: (var95 * 100).toFixed(2) + '%',\n      interpretation: 'With 95% confidence, daily loss will not exceed ' + (Math.abs(var95) * 100).toFixed(2) + '%',\n      tradingDays: returns.length\n    };\n  },\n  \n  var99: () => {\n    const returns = calcReturns(prices);\n    const sorted = [...returns].sort((a, b) => a - b);\n    const index = Math.floor(0.01 * sorted.length);\n    const var99 = sorted[index];\n    return {\n      var99Daily: (var99 * 100).toFixed(2) + '%',\n      interpretation: 'With 99% confidence, daily loss will not exceed ' + (Math.abs(var99) * 100).toFixed(2) + '%',\n      tradingDays: returns.length\n    };\n  },\n  \n  volatility: () => {\n    const returns = calcReturns(prices);\n    const dailyVol = std(returns);\n    const annualizedVol = dailyVol * Math.sqrt(252);\n    return {\n      dailyVolatility: (dailyVol * 100).toFixed(2) + '%',\n      annualizedVolatility: (annualizedVol * 100).toFixed(2) + '%',\n      tradingDays: returns.length\n    };\n  },\n  \n  returns: () => {\n    const returns = calcReturns(prices);\n    const totalReturn = (prices[prices.length - 1] - prices[0]) / prices[0];\n    const avgDaily = mean(returns);\n    const annualized = avgDaily * 252;\n    return {\n      totalReturn: (totalReturn * 100).toFixed(2) + '%',\n      averageDailyReturn: (avgDaily * 100).toFixed(4) + '%',\n      annualizedReturn: (annualized * 100).toFixed(2) + '%',\n      tradingDays: returns.length\n    };\n  },\n  \n  max_drawdown: () => {\n    let peak = prices[0];\n    let maxDrawdown = 0;\n    \n    for (let i = 0; i < prices.length; i++) {\n      if (prices[i] > peak) peak = prices[i];\n      const currentDrawdown = (peak - prices[i]) / peak;\n      if (currentDrawdown > maxDrawdown) maxDrawdown = currentDrawdown;\n    }\n    \n    return {\n      maxDrawdown: (maxDrawdown * 100).toFixed(2) + '%',\n      interpretation: 'The largest peak-to-trough decline was ' + (maxDrawdown * 100).toFixed(2) + '%',\n      tradingDays: prices.length\n    };\n  }\n};\n\n// Execute\nif (!calculations[calculationType]) {\n  return 'Error: Unknown calculation type \"' + calculationType + '\". Available: ' + Object.keys(calculations).join(', ');\n}\n\n// Return as JSON string (required by n8n Code Tool)\nreturn JSON.stringify(calculations[calculationType]());"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        -48,
+        304
+      ],
+      "id": "b8e61f18-cb36-4711-ae62-71be1e0e14c9",
+      "name": "Calculate Metric"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Price": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Historical Prices": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Fundamentals": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Metric": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "085b646f-0a2b-48bb-ab7d-a2bf6eaa663c",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "66173783a3a0bf5704df9a4c4111afd1edcc3224e4a2e932e282b16db3f9a83e"
+  },
+  "id": "VT0YRSZ5oWx7Hk7yxG1rF",
+  "tags": []
+}

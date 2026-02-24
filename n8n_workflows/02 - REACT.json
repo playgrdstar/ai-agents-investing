@@ -1,0 +1,203 @@
+{
+  "name": "02 - REACT",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -368,
+        -48
+      ],
+      "id": "4d6efb2e-ceb0-42ba-9714-9ee6b675fe76",
+      "name": "When chat message received",
+      "webhookId": "d840021c-80d2-445d-abb7-60b56f9babee"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a financial analyst using the ReAct pattern. For every question, you must:\n\nTHINK: What do I need to know?\n\nACT: Call a tool.\n\nOBSERVE: Analyze the result.\n\nLOOP: Do I need more info? If yes, repeat.\n\nCONCLUDE: Answer the user.\n\nAlways gather data for ALL companies mentioned before answering."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -160,
+        -48
+      ],
+      "id": "b6e32e71-f8d3-4fc6-b15d-b49e58d6b83a",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -304,
+        160
+      ],
+      "id": "8b6ddf14-fd84-48b1-a824-5158e2631737",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "dNGZjd5M7FEnikxV",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "toolDescription": "Stock Price",
+        "url": "=https://financialmodelingprep.com/api/v3/quote/{{ $fromAI('ticker') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -16,
+        256
+      ],
+      "id": "466ada39-54e4-4754-84e1-9dfe9e180b06",
+      "name": "Stock Price"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Company Fundamentals",
+        "url": "=https://financialmodelingprep.com/api/v3/key-metrics-ttm/{{ $fromAI('ticker') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        176,
+        256
+      ],
+      "id": "252d333c-28d9-4fe8-95e3-934daeee042d",
+      "name": "Company Fundamentals"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Income Statement",
+        "url": "=https://financialmodelingprep.com/api/v3/income-statement/{{ $fromAI('ticker') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        80,
+        256
+      ],
+      "id": "ae60cfba-cbb2-4fb5-9731-ed4340f4e42d",
+      "name": "Income Statement"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Price": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Fundamentals": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Income Statement": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "77e6e7ba-89d1-43f1-92a8-a38e97044026",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "66173783a3a0bf5704df9a4c4111afd1edcc3224e4a2e932e282b16db3f9a83e"
+  },
+  "id": "aPePyyXUR-WHjuN9oMsLR",
+  "tags": []
+}

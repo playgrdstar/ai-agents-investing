@@ -1,0 +1,333 @@
+{
+  "name": "04 - Portfolio Optimization: Full Orchestration Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -496,
+        160
+      ],
+      "id": "73c8d079-2c4d-4895-8fe8-c6b7aef73c06",
+      "name": "When chat message received",
+      "webhookId": "portfolio-optimization-chat"
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "You are a portfolio analysis assistant.\n\nYou have access to these tools:\n1. Stock Price - get current price for a ticker\n2. Historical Prices - get daily price history\n3. Company Profile - get sector, industry, description\n4. Company Fundamentals - get P/E, ROE, margins\n5. Income Statement - get revenue, earnings\n6. Calculate Portfolio Metrics - compute portfolio-level analytics\n\nFor portfolio analysis:\n1. When user provides holdings, fetch current prices for each\n2. Use Calculate Portfolio Metrics for analysis\n3. Explain results clearly\n\nAvailable calculationType values for Calculate Portfolio Metrics:\n- 'weights': Portfolio weights and total value\n- 'concentration': HHI index, top holdings risk\n- 'sector_allocation': Breakdown by sector\n- 'portfolio_return': Weighted return (needs holdingsReturns)\n- 'portfolio_volatility': Portfolio volatility (needs holdingsReturns)\n- 'portfolio_sharpe': Portfolio Sharpe ratio (needs holdingsReturns)\n- 'rebalance': Trades to hit target weights (needs targetWeights)\n\nWhen calling Calculate Portfolio Metrics, pass JSON with:\n- calculationType: one of the above\n- holdings: array of {ticker, shares, price, sector}\n- holdingsReturns: object with ticker keys and returns arrays (for return/vol/sharpe)\n- targetWeights: object with ticker keys and weights 0-1 (for rebalance)\n- riskFreeRate: optional, default 0.05\n\nAlways show your reasoning and explain results for non-quants."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -288,
+        160
+      ],
+      "id": "44ae84f5-c776-4922-abcf-e3c90e6cc6e9",
+      "name": "Portfolio Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "temperature": 0.1
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -448,
+        416
+      ],
+      "id": "ea6b6778-781a-4382-84b3-31ee830171ee",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "dNGZjd5M7FEnikxV",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "portfolio_session"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.2,
+      "position": [
+        -448,
+        640
+      ],
+      "id": "0427493f-966a-4c65-ab39-e446a8ceea9a",
+      "name": "Window Buffer Memory"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get current stock price, daily change, volume, and market cap for a ticker.",
+        "url": "=https://financialmodelingprep.com/api/v3/quote/{{ $fromAI('ticker', 'Stock ticker symbol') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -176,
+        640
+      ],
+      "id": "d382f19b-c943-4cb0-af44-af23a2b9282d",
+      "name": "Stock Price"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get company profile including sector, industry, description, CEO. Use to understand what sector a holding belongs to.",
+        "url": "=https://financialmodelingprep.com/api/v3/profile/{{ $fromAI('ticker', 'Stock ticker symbol') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        208,
+        640
+      ],
+      "id": "3afcbefb-67e9-419b-a47c-d9a7f27d549f",
+      "name": "Company Profile"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get historical daily prices for calculating returns and volatility. Returns date, open, high, low, close, volume. Specify ticker and optionally days (default 100).",
+        "url": "=https://financialmodelingprep.com/api/v3/historical-price-full/{{ $fromAI('ticker', 'Stock ticker symbol') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            },
+            {
+              "name": "timeseries",
+              "value": "={{ $fromAI('days', 'Number of trading days, default 100') }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        112,
+        640
+      ],
+      "id": "c17e22fe-58fb-469f-b967-5d22c4f98ed0",
+      "name": "Historical Prices"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get company fundamentals including P/E ratio, ROE, ROA, debt/equity, profit margins.",
+        "url": "=https://financialmodelingprep.com/api/v3/key-metrics-ttm/{{ $fromAI('ticker', 'Stock ticker symbol') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        16,
+        640
+      ],
+      "id": "5597ac88-7c58-403d-b78b-bec862f59215",
+      "name": "Company Fundamentals"
+    },
+    {
+      "parameters": {
+        "toolDescription": "Get income statement with revenue, gross profit, operating income, net income, EPS.",
+        "url": "=https://financialmodelingprep.com/api/v3/income-statement/{{ $fromAI('ticker', 'Stock ticker symbol') }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "INSERTYOURKEYHERE"
+            },
+            {
+              "name": "limit",
+              "value": "4"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequestTool",
+      "typeVersion": 4.4,
+      "position": [
+        -80,
+        640
+      ],
+      "id": "0736364c-eb21-459d-97ed-86d8e621dbaf",
+      "name": "Income Statement"
+    },
+    {
+      "parameters": {
+        "name": "calculate_portfolio_metrics",
+        "description": "Calculate portfolio-level metrics. Pass JSON with: calculationType ('weights', 'concentration', 'sector_allocation', 'portfolio_return', 'portfolio_volatility', 'portfolio_sharpe', 'rebalance'), holdings (array of {ticker, shares, price, sector}), holdingsReturns (object with ticker keys and returns arrays), targetWeights (object with ticker keys and target weights 0-1), riskFreeRate (optional, default 0.05).",
+        "jsCode": "// Get input - handle ALL possible formats\nlet params;\n\ntry {\n  const json = $input.item.json;\n  \n  // Check all possible input locations\n  if (typeof json.query === 'string') {\n    params = JSON.parse(json.query);\n  } else if (typeof json.input === 'string') {\n    params = JSON.parse(json.input);\n  } else if (json.input && typeof json.input === 'object') {\n    // Input is already an object (not a string)\n    params = json.input;\n  } else if (json.calculationType) {\n    // Direct parameters on json root\n    params = json;\n  } else {\n    return 'Error: Could not find valid input. Keys received: ' + Object.keys(json).join(', ');\n  }\n} catch (e) {\n  return 'Error parsing input: ' + e.message + '. Raw input: ' + JSON.stringify($input.item.json).substring(0, 200);\n}\n\nconst calculationType = params.calculationType;\nconst holdings = params.holdings || [];\nconst holdingsReturns = params.holdingsReturns || {};\nconst targetWeights = params.targetWeights || {};\nconst riskFreeRate = params.riskFreeRate || 0.05;\n\n// Validate\nif (!calculationType) {\n  return 'Error: calculationType is required. Received params: ' + JSON.stringify(params).substring(0, 200);\n}\n\nif (!holdings || !Array.isArray(holdings) || holdings.length === 0) {\n  return 'Error: holdings array required with {ticker, shares, price, sector}';\n}\n\n// Helper functions\nfunction mean(arr) {\n  if (!arr || arr.length === 0) return 0;\n  return arr.reduce((a, b) => a + b, 0) / arr.length;\n}\n\nfunction std(arr) {\n  if (!arr || arr.length === 0) return 0;\n  const m = mean(arr);\n  return Math.sqrt(arr.map(x => Math.pow(x - m, 2)).reduce((a, b) => a + b, 0) / arr.length);\n}\n\nfunction covariance(arr1, arr2) {\n  if (!arr1 || !arr2 || arr1.length === 0) return 0;\n  const m1 = mean(arr1);\n  const m2 = mean(arr2);\n  return arr1.map((x, i) => (x - m1) * (arr2[i] - m2)).reduce((a, b) => a + b, 0) / arr1.length;\n}\n\n// Calculate weights\nfunction getWeights(holdingsArray) {\n  const totalValue = holdingsArray.reduce((sum, h) => sum + (h.shares * h.price), 0);\n  if (totalValue === 0) return [];\n  return holdingsArray.map(h => ({\n    ticker: h.ticker,\n    value: h.shares * h.price,\n    weight: (h.shares * h.price) / totalValue,\n    shares: h.shares,\n    price: h.price,\n    sector: h.sector || 'Unknown'\n  }));\n}\n\n// Calculations\nconst calculations = {\n  weights: () => {\n    const weighted = getWeights(holdings);\n    const totalValue = weighted.reduce((sum, w) => sum + w.value, 0);\n    return {\n      holdings: weighted.map(w => ({\n        ticker: w.ticker,\n        value: '$' + w.value.toFixed(2),\n        weight: (w.weight * 100).toFixed(2) + '%'\n      })),\n      totalPortfolioValue: '$' + totalValue.toFixed(2)\n    };\n  },\n  \n  concentration: () => {\n    const weighted = getWeights(holdings);\n    const sorted = [...weighted].sort((a, b) => b.weight - a.weight);\n    \n    const hhi = weighted.reduce((sum, w) => sum + Math.pow(w.weight, 2), 0);\n    const effectiveN = hhi > 0 ? 1 / hhi : 0;\n    \n    const top1 = sorted[0] ? sorted[0].weight : 0;\n    const top3 = sorted.slice(0, 3).reduce((sum, w) => sum + w.weight, 0);\n    const top5 = sorted.slice(0, 5).reduce((sum, w) => sum + w.weight, 0);\n    \n    return {\n      herfindahlIndex: hhi.toFixed(4),\n      effectiveNumberOfHoldings: effectiveN.toFixed(2),\n      top1Concentration: (top1 * 100).toFixed(2) + '%',\n      top3Concentration: (top3 * 100).toFixed(2) + '%',\n      top5Concentration: (top5 * 100).toFixed(2) + '%',\n      topHoldings: sorted.slice(0, 5).map(w => ({\n        ticker: w.ticker,\n        weight: (w.weight * 100).toFixed(2) + '%'\n      })),\n      concentrationRisk: hhi > 0.25 ? 'HIGH' : hhi > 0.15 ? 'MEDIUM' : 'LOW'\n    };\n  },\n  \n  sector_allocation: () => {\n    const weighted = getWeights(holdings);\n    const sectorWeights = {};\n    \n    for (const w of weighted) {\n      const sector = w.sector || 'Unknown';\n      sectorWeights[sector] = (sectorWeights[sector] || 0) + w.weight;\n    }\n    \n    return {\n      sectorAllocation: Object.entries(sectorWeights)\n        .sort((a, b) => b[1] - a[1])\n        .map(([sector, weight]) => ({\n          sector,\n          weight: (weight * 100).toFixed(2) + '%'\n        })),\n      numberOfSectors: Object.keys(sectorWeights).length\n    };\n  },\n  \n  portfolio_return: () => {\n    const weighted = getWeights(holdings);\n    const tickers = Object.keys(holdingsReturns);\n    \n    if (tickers.length === 0) {\n      return { error: 'holdingsReturns required with ticker keys and returns arrays' };\n    }\n    \n    let portfolioReturn = 0;\n    const details = [];\n    \n    for (const w of weighted) {\n      if (holdingsReturns[w.ticker]) {\n        const returns = holdingsReturns[w.ticker];\n        const annualizedReturn = mean(returns) * 252;\n        portfolioReturn += w.weight * annualizedReturn;\n        details.push({\n          ticker: w.ticker,\n          weight: (w.weight * 100).toFixed(2) + '%',\n          annualizedReturn: (annualizedReturn * 100).toFixed(2) + '%',\n          contribution: (w.weight * annualizedReturn * 100).toFixed(2) + '%'\n        });\n      }\n    }\n    \n    return {\n      portfolioAnnualizedReturn: (portfolioReturn * 100).toFixed(2) + '%',\n      holdingDetails: details\n    };\n  },\n  \n  portfolio_volatility: () => {\n    const weighted = getWeights(holdings);\n    const tickers = Object.keys(holdingsReturns);\n    \n    if (tickers.length === 0) {\n      return { error: 'holdingsReturns required' };\n    }\n    \n    const vols = {};\n    for (const ticker of tickers) {\n      vols[ticker] = std(holdingsReturns[ticker]) * Math.sqrt(252);\n    }\n    \n    let simpleVol = 0;\n    for (const w of weighted) {\n      if (vols[w.ticker]) {\n        simpleVol += w.weight * vols[w.ticker];\n      }\n    }\n    \n    let portfolioVariance = 0;\n    for (let i = 0; i < weighted.length; i++) {\n      for (let j = 0; j < weighted.length; j++) {\n        const ti = weighted[i].ticker;\n        const tj = weighted[j].ticker;\n        if (holdingsReturns[ti] && holdingsReturns[tj]) {\n          const wi = weighted[i].weight;\n          const wj = weighted[j].weight;\n          const cov = covariance(holdingsReturns[ti], holdingsReturns[tj]) * 252;\n          portfolioVariance += wi * wj * cov;\n        }\n      }\n    }\n    \n    const portfolioVol = Math.sqrt(Math.abs(portfolioVariance));\n    \n    return {\n      portfolioVolatility: (portfolioVol * 100).toFixed(2) + '%',\n      simpleWeightedVolatility: (simpleVol * 100).toFixed(2) + '%',\n      diversificationBenefit: ((simpleVol - portfolioVol) * 100).toFixed(2) + '%'\n    };\n  },\n  \n  portfolio_sharpe: () => {\n    const weighted = getWeights(holdings);\n    const tickers = Object.keys(holdingsReturns);\n    \n    if (tickers.length === 0) {\n      return { error: 'holdingsReturns required' };\n    }\n    \n    let portfolioReturn = 0;\n    for (const w of weighted) {\n      if (holdingsReturns[w.ticker]) {\n        portfolioReturn += w.weight * mean(holdingsReturns[w.ticker]) * 252;\n      }\n    }\n    \n    let portfolioVariance = 0;\n    for (let i = 0; i < weighted.length; i++) {\n      for (let j = 0; j < weighted.length; j++) {\n        const ti = weighted[i].ticker;\n        const tj = weighted[j].ticker;\n        if (holdingsReturns[ti] && holdingsReturns[tj]) {\n          const wi = weighted[i].weight;\n          const wj = weighted[j].weight;\n          const cov = covariance(holdingsReturns[ti], holdingsReturns[tj]) * 252;\n          portfolioVariance += wi * wj * cov;\n        }\n      }\n    }\n    \n    const portfolioVol = Math.sqrt(Math.abs(portfolioVariance));\n    const sharpe = portfolioVol > 0 ? (portfolioReturn - riskFreeRate) / portfolioVol : 0;\n    \n    return {\n      portfolioSharpeRatio: sharpe.toFixed(4),\n      portfolioAnnualizedReturn: (portfolioReturn * 100).toFixed(2) + '%',\n      portfolioVolatility: (portfolioVol * 100).toFixed(2) + '%',\n      riskFreeRateUsed: (riskFreeRate * 100).toFixed(2) + '%'\n    };\n  },\n  \n  rebalance: () => {\n    const weighted = getWeights(holdings);\n    const totalValue = weighted.reduce((sum, w) => sum + w.value, 0);\n    \n    if (Object.keys(targetWeights).length === 0) {\n      return { error: 'targetWeights required as object with ticker keys and weights 0-1' };\n    }\n    \n    const trades = [];\n    for (const w of weighted) {\n      const target = targetWeights[w.ticker] || 0;\n      const currentValue = w.value;\n      const targetValue = target * totalValue;\n      const difference = targetValue - currentValue;\n      const sharesDiff = w.price > 0 ? difference / w.price : 0;\n      \n      trades.push({\n        ticker: w.ticker,\n        currentWeight: (w.weight * 100).toFixed(2) + '%',\n        targetWeight: (target * 100).toFixed(2) + '%',\n        action: difference > 10 ? 'BUY' : difference < -10 ? 'SELL' : 'HOLD',\n        shares: Math.abs(sharesDiff).toFixed(2),\n        value: '$' + Math.abs(difference).toFixed(2)\n      });\n    }\n    \n    return {\n      rebalancingTrades: trades.filter(t => t.action !== 'HOLD'),\n      noActionNeeded: trades.filter(t => t.action === 'HOLD').map(t => t.ticker),\n      portfolioValue: '$' + totalValue.toFixed(2)\n    };\n  }\n};\n\n// Execute\nif (!calculations[calculationType]) {\n  return 'Error: Unknown calculation type \"' + calculationType + '\". Available: ' + Object.keys(calculations).join(', ');\n}\n\ntry {\n  const result = calculations[calculationType]();\n  return JSON.stringify(result);\n} catch (e) {\n  return 'Error executing calculation: ' + e.message;\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.toolCode",
+      "typeVersion": 1.1,
+      "position": [
+        -288,
+        640
+      ],
+      "id": "21f5a52f-bc7c-4fd4-a765-0dd7b326a2bd",
+      "name": "Calculate Portfolio Metrics"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Stock Price": {
+      "ai_tool": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Profile": {
+      "ai_tool": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Historical Prices": {
+      "ai_tool": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Company Fundamentals": {
+      "ai_tool": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Income Statement": {
+      "ai_tool": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Portfolio Metrics": {
+      "ai_tool": [
+        [
+          {
+            "node": "Portfolio Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "fa514219-494f-462a-aa9a-7f03a885454f",
+  "meta": {
+    "instanceId": "66173783a3a0bf5704df9a4c4111afd1edcc3224e4a2e932e282b16db3f9a83e"
+  },
+  "id": "ADLbFjgAbF6xp9xalm4Fm",
+  "tags": []
+}

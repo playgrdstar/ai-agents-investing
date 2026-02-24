@@ -1,0 +1,27 @@
+# Core agent framework
+smolagents
+litellm
+
+# Data science
+pandas
+numpy
+scipy
+matplotlib
+
+# Financial data
+yfinance
+pyportfolioopt
+
+# LLM providers (install the ones you plan to use)
+openai
+anthropic
+google-genai
+huggingface_hub
+
+# Additional data providers (optional)
+requests
+massive
+twelvedata
+
+# Notebook environment
+jupyter

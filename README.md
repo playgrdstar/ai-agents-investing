@@ -12,7 +12,7 @@ The full ebook (PDF) and a ZIP of all notebooks are free to download from my Sub
 
 👉 [simplyboring.ai](https://simplyboring.ai)
 
-Link to article: Subscribe at the end of this [article](https://open.substack.com/pub/simplyboringai/p/a-free-180-page-ebook-on-ai-agents?utm_campaign=post-expanded-share&utm_medium=post%20viewer)
+Subscribe at the end of this [article](https://open.substack.com/pub/simplyboringai/p/a-free-180-page-ebook-on-ai-agents?utm_campaign=post-expanded-share&utm_medium=post%20viewer) to get the links.
 
 
 ---
@@ -88,7 +88,7 @@ Import any `.json` file into n8n, add your API credentials, and you have a worki
 
 ### Easiest: Google Colab (recommended for beginners)
 
-1. Download the ZIP from the Substack article. Subscribe at the end of this [article](https://open.substack.com/pub/simplyboringai/p/a-free-180-page-ebook-on-ai-agents?utm_campaign=post-expanded-share&utm_medium=post%20viewer)
+1. Download the ZIP from the Substack article. Subscribe at the end of this [article](https://open.substack.com/pub/simplyboringai/p/a-free-180-page-ebook-on-ai-agents?utm_campaign=post-expanded-share&utm_medium=post%20viewer) to get the link.
 2. Upload the ZIP to your Google Drive
 3. Right-click any `.ipynb` file → Open with → Google Colaboratory
 4. Paste in your API key and run the cells
